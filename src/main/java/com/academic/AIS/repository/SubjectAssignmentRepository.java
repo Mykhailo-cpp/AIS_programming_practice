@@ -30,5 +30,16 @@ public interface SubjectAssignmentRepository extends JpaRepository<SubjectAssign
                                                 @Param("academicYear") String academicYear,
                                                 @Param("semester") String semester);
 
+    List<SubjectAssignment> findBySubject_SubjectId(Integer subjectId);
+
+    List<SubjectAssignment> findByGroup_GroupId(Integer groupId);
+
+    List<SubjectAssignment> findByAcademicYear(String academicYear);
+
+    Long countByTeacher_TeacherId(Integer teacherId);
+
+    Long countBySubject_SubjectId(Integer subjectId);
+
+    Long countByGroup_GroupId(Integer groupId);
 
 }

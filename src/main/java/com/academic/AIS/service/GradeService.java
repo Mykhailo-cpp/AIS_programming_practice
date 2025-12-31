@@ -1,6 +1,9 @@
-
 package com.academic.AIS.service;
 
+import com.academic.AIS.exception.DuplicateResourceException;
+import com.academic.AIS.exception.ResourceNotFoundException;
+import com.academic.AIS.exception.UnauthorizedException;
+import com.academic.AIS.exception.ValidationException;
 import com.academic.AIS.model.Grade;
 import com.academic.AIS.model.Student;
 import com.academic.AIS.model.SubjectAssignment;
@@ -12,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -35,27 +37,26 @@ public class GradeService {
                             Integer gradeValue, String comments) {
 
         Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
-
+                .orElseThrow(() -> new ResourceNotFoundException("Student", "id", studentId));
 
         SubjectAssignment assignment = assignmentRepository.findById(assignmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Assignment not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment", "id", assignmentId));
 
         if (!assignment.getTeacher().getTeacherId().equals(teacherId)) {
-            throw new IllegalArgumentException("You are not assigned to teach this subject");
+            throw new UnauthorizedException("You are not assigned to teach this subject");
         }
 
         if (student.getGroup() == null ||
                 !student.getGroup().getGroupId().equals(assignment.getGroup().getGroupId())) {
-            throw new IllegalArgumentException("Student is not in the group for this subject");
+            throw new ValidationException("Student is not in the group for this subject");
         }
 
         if (gradeRepository.existsByStudentAndAssignment(studentId, assignmentId)) {
-            throw new IllegalArgumentException("Grade already exists. Use update instead.");
+            throw new DuplicateResourceException("Grade already exists for this student and assignment. Use update instead.");
         }
 
         if (gradeValue < 0 || gradeValue > 10) {
-            throw new IllegalArgumentException("Grade must be between 0 and 10");
+            throw new ValidationException("Grade must be between 0 and 10");
         }
 
         Grade grade = new Grade(student, assignment, gradeValue, comments);
@@ -65,14 +66,14 @@ public class GradeService {
     public Grade updateGrade(Integer gradeId, Integer teacherId,
                              Integer newGradeValue, String newComments) {
         Grade grade = gradeRepository.findById(gradeId)
-                .orElseThrow(() -> new IllegalArgumentException("Grade not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Grade", "id", gradeId));
 
         if (!grade.getAssignment().getTeacher().getTeacherId().equals(teacherId)) {
-            throw new IllegalArgumentException("You can only edit grades you assigned");
+            throw new UnauthorizedException("You can only edit grades you assigned");
         }
 
         if (newGradeValue < 0 || newGradeValue > 10) {
-            throw new IllegalArgumentException("Grade must be between 0 and 10");
+            throw new ValidationException("Grade must be between 0 and 10");
         }
 
         grade.setGradeValue(newGradeValue);
@@ -84,14 +85,13 @@ public class GradeService {
 
     public Grade deleteGrade(Integer gradeId, Integer teacherId) {
         Grade grade = gradeRepository.findById(gradeId)
-                .orElseThrow(() -> new IllegalArgumentException("Grade not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Grade", "id", gradeId));
 
         if (!grade.getAssignment().getTeacher().getTeacherId().equals(teacherId)) {
-            throw new IllegalArgumentException("You can only delete grades you assigned");
+            throw new UnauthorizedException("You can only delete grades you assigned");
         }
 
         Grade deletedGrade = grade;
-
         gradeRepository.deleteById(gradeId);
 
         return deletedGrade;

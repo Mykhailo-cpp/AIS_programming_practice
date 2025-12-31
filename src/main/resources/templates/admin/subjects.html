@@ -20,7 +20,15 @@
             <a href="/admin/teachers">Teachers</a>
             <a href="/admin/groups">Groups</a>
             <a href="/admin/subjects" class="active">Subjects</a>
-            <a href="/logout">Logout</a>
+        </div>
+        <div class="navbar-right">
+            <div class="user-info">
+                <div class="user-icon">
+                    <span th:text="${#strings.substring(session.displayName != null ? session.displayName : 'Admin', 0, 1)}">A</span>
+                </div>
+                <span style="font-size: 14px; font-weight: 500;">Admin</span>
+            </div>
+            <a href="/logout" class="btn-logout">Logout</a>
         </div>
     </div>
 </nav>
@@ -30,7 +38,9 @@
     <!-- Page Header -->
     <header class="page-header">
         <h2>
-            <span aria-hidden="true">📚</span>
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
             Manage Subjects
         </h2>
         <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Add new subject">
@@ -40,9 +50,15 @@
 
     <!-- Alerts -->
     <div th:if="${success}" class="alert alert-success" role="alert">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <span th:text="${success}">Success message</span>
     </div>
     <div th:if="${error}" class="alert alert-error" role="alert">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <span th:text="${error}">Error message</span>
     </div>
 
@@ -72,7 +88,6 @@
                     <td>
                         <span class="badge badge-success" th:text="${subject.credits}">5</span>
                     </td>
-                    <!-- Teacher -->
                     <td>
                         <span th:if="${!#lists.isEmpty(subject.assignments) and subject.assignments[0].teacher != null}"
                               class="badge badge-info"
@@ -84,7 +99,6 @@
                             Not assigned
                         </span>
                     </td>
-                    <!-- Group -->
                     <td>
                         <span th:if="${!#lists.isEmpty(subject.assignments) and subject.assignments[0].group != null}"
                               class="badge badge-secondary"
@@ -96,7 +110,6 @@
                             Not assigned
                         </span>
                     </td>
-                    <!-- Academic Year -->
                     <td th:text="${!#lists.isEmpty(subject.assignments) ? subject.assignments[0].academicYear : 'N/A'}">
                         2024/2025
                     </td>
@@ -121,7 +134,17 @@
                     </td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(subjects)}">
-                    <td colspan="8" class="text-center text-muted">No subjects found</td>
+                    <td colspan="8" class="text-center text-muted">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                </svg>
+                            </div>
+                            <h3>No Subjects Found</h3>
+                            <p>Start by adding your first subject.</p>
+                        </div>
+                    </td>
                 </tr>
                 </tbody>
             </table>
@@ -201,9 +224,6 @@
 </div>
 
 <script>
-    // Don't serialize full entities - causes circular reference errors
-    // We'll get data from the DOM instead
-
     function openCreateModal() {
         const modal = document.getElementById('createModal');
         modal.classList.add('show');
@@ -219,35 +239,21 @@
 
     function openEditModal(subjectId) {
         try {
-            console.log('Opening edit modal for subject ID:', subjectId);
-
-            // Get data directly from the table row
             const button = document.querySelector(`button[data-subject-id="${subjectId}"]`);
-            console.log('Found button:', button);
-
             if (!button) {
                 alert('Could not find subject');
                 return;
             }
 
             const row = button.closest('tr');
-            console.log('Found row:', row);
-
             const cells = row.cells;
 
             const subjectName = cells[1].textContent.trim();
             const subjectCode = cells[2].querySelector('.badge').textContent.trim();
             const credits = cells[3].querySelector('.badge').textContent.trim();
-
-            console.log('Subject data:', { subjectName, subjectCode, credits });
-
-            // Get current teacher and group from the table
             const currentTeacher = cells[4].textContent.trim();
             const currentGroup = cells[5].textContent.trim();
 
-            console.log('Current assignments:', { currentTeacher, currentGroup });
-
-            // Get all teacher options from the create modal
             const createTeacherSelect = document.getElementById('teacherId');
             const teacherOptions = Array.from(createTeacherSelect.options)
                 .map(opt => {
@@ -258,7 +264,6 @@
                 })
                 .join('');
 
-            // Get all group options from the create modal
             const createGroupSelect = document.getElementById('groupId');
             const groupOptions = Array.from(createGroupSelect.options)
                 .map(opt => {
@@ -359,7 +364,6 @@
         return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
     }
 
-    // Close modals when clicking outside
     window.addEventListener('click', function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.classList.remove('show');
@@ -367,7 +371,6 @@
         }
     });
 
-    // Close modals with Escape key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             const modals = document.querySelectorAll('.modal.show');

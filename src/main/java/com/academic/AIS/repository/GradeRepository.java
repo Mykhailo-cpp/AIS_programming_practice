@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface GradeRepository extends JpaRepository<Grade, Integer> {
@@ -41,5 +40,17 @@ public interface GradeRepository extends JpaRepository<Grade, Integer> {
                                          @Param("assignmentId") Integer assignmentId);
 
     List<Grade> findByAssignment_AssignmentIdOrderByGradeDateDesc(Integer assignmentId);
+
+    Long countByStudent_StudentId(Integer studentId);
+
+    List<Grade> findByStudent_StudentId(Integer studentId);
+
+    @Query("SELECT g FROM Grade g " +
+            "WHERE g.student.studentId = :studentId " +
+            "AND g.assignment.subject.subjectId = :subjectId " +
+            "ORDER BY g.gradeDate DESC")
+    List<Grade> findByStudent_StudentIdAndAssignment_Subject_SubjectId(
+            @Param("studentId") Integer studentId,
+            @Param("subjectId") Integer subjectId);
 
 }

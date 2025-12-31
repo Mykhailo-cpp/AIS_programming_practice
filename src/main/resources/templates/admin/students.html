@@ -20,7 +20,15 @@
       <a href="/admin/teachers">Teachers</a>
       <a href="/admin/groups">Groups</a>
       <a href="/admin/subjects">Subjects</a>
-      <a href="/logout">Logout</a>
+    </div>
+    <div class="navbar-right">
+      <div class="user-info">
+        <div class="user-icon">
+          <span th:text="${#strings.substring(session.displayName != null ? session.displayName : 'Admin', 0, 1)}">A</span>
+        </div>
+        <span style="font-size: 14px; font-weight: 500;">Admin</span>
+      </div>
+      <a href="/logout" class="btn-logout">Logout</a>
     </div>
   </div>
 </nav>
@@ -30,7 +38,9 @@
   <!-- Page Header -->
   <header class="page-header">
     <h2>
-      <span aria-hidden="true">👨‍🎓</span>
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
       Manage Students
     </h2>
     <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Add new student">
@@ -40,9 +50,15 @@
 
   <!-- Alerts -->
   <div th:if="${success}" class="alert alert-success" role="alert">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
     <span th:text="${success}">Success message</span>
   </div>
   <div th:if="${error}" class="alert alert-error" role="alert">
+    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
     <span th:text="${error}">Error message</span>
   </div>
 
@@ -107,7 +123,17 @@
           </td>
         </tr>
         <tr th:if="${#lists.isEmpty(students)}">
-          <td colspan="6" class="text-center text-muted">No students found</td>
+          <td colspan="6" class="text-center text-muted">
+            <div class="empty-state">
+              <div class="empty-icon">
+                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+              </div>
+              <h3>No Students Found</h3>
+              <p>Start by adding your first student.</p>
+            </div>
+          </td>
         </tr>
         </tbody>
       </table>
@@ -157,8 +183,6 @@
 </div>
 
 <script>
-  // Don't serialize full entities - causes circular reference errors
-
   function openCreateModal() {
     const modal = document.getElementById('createModal');
     modal.classList.add('show');
@@ -173,7 +197,6 @@
   }
 
   function openEditModal(studentId, firstName, lastName, email, groupId) {
-    // Get group options from create modal
     const createGroupSelect = document.getElementById('groupId');
     const groupOptions = Array.from(createGroupSelect.options)
             .map(opt => {
@@ -241,7 +264,6 @@
     return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
   }
 
-  // Close modals when clicking outside
   window.addEventListener('click', function(event) {
     if (event.target.classList.contains('modal')) {
       event.target.classList.remove('show');
@@ -249,7 +271,6 @@
     }
   });
 
-  // Close modals with Escape key
   document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
       const modals = document.querySelectorAll('.modal.show');

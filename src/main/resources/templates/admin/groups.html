@@ -20,7 +20,15 @@
             <a href="/admin/teachers">Teachers</a>
             <a href="/admin/groups" class="active">Groups</a>
             <a href="/admin/subjects">Subjects</a>
-            <a href="/logout">Logout</a>
+        </div>
+        <div class="navbar-right">
+            <div class="user-info">
+                <div class="user-icon">
+                    <span th:text="${#strings.substring(session.displayName != null ? session.displayName : 'Admin', 0, 1)}">A</span>
+                </div>
+                <span style="font-size: 14px; font-weight: 500;">Admin</span>
+            </div>
+            <a href="/logout" class="btn-logout">Logout</a>
         </div>
     </div>
 </nav>
@@ -30,7 +38,9 @@
     <!-- Page Header -->
     <header class="page-header">
         <h2>
-            <span aria-hidden="true">👥</span>
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
             Manage Groups
         </h2>
         <button class="btn btn-primary" onclick="openCreateModal()" aria-label="Add new group">
@@ -40,9 +50,15 @@
 
     <!-- Alerts -->
     <div th:if="${success}" class="alert alert-success" role="alert">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <span th:text="${success}">Success message</span>
     </div>
     <div th:if="${error}" class="alert alert-error" role="alert">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
         <span th:text="${error}">Error message</span>
     </div>
 
@@ -93,7 +109,17 @@
                     </td>
                 </tr>
                 <tr th:if="${#lists.isEmpty(groups)}">
-                    <td colspan="5" class="text-center text-muted">No groups found</td>
+                    <td colspan="5" class="text-center text-muted">
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                </svg>
+                            </div>
+                            <h3>No Groups Found</h3>
+                            <p>Start by adding your first student group.</p>
+                        </div>
+                    </td>
                 </tr>
                 </tbody>
             </table>
@@ -130,8 +156,6 @@
 </div>
 
 <script>
-    // Don't serialize full entities - causes circular reference errors
-
     function openCreateModal() {
         const modal = document.getElementById('createModal');
         modal.classList.add('show');
@@ -197,7 +221,6 @@
         return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
     }
 
-    // Close modals when clicking outside
     window.addEventListener('click', function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.classList.remove('show');
@@ -205,7 +228,6 @@
         }
     });
 
-    // Close modals with Escape key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             const modals = document.querySelectorAll('.modal.show');

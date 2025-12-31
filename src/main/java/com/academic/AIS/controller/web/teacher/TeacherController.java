@@ -1,12 +1,20 @@
-package com.academic.AIS.controller;
+package com.academic.AIS.controller.web.teacher;
 
-import com.academic.AIS.model.*;
+import com.academic.AIS.model.Teacher;
+import com.academic.AIS.model.SubjectAssignment;
+import com.academic.AIS.model.Grade;
+import com.academic.AIS.model.Student;
 import com.academic.AIS.service.GradeService;
-import com.academic.AIS.service.TeacherService;
-import jakarta.servlet.http.HttpSession;
+import com.academic.AIS.service.TeacherManagementService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -15,82 +23,72 @@ import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/teacher")
+@PreAuthorize("hasRole('TEACHER')")
+@Validated
 public class TeacherController {
 
-    private final TeacherService teacherService;
+    private final TeacherManagementService teacherManagementService;
     private final GradeService gradeService;
 
     @Autowired
-    public TeacherController(TeacherService teacherService, GradeService gradeService) {
-        this.teacherService = teacherService;
+    public TeacherController(TeacherManagementService teacherManagementService, GradeService gradeService) {
+        this.teacherManagementService = teacherManagementService;
         this.gradeService = gradeService;
     }
 
-    private boolean checkTeacherAccess(HttpSession session, RedirectAttributes redirectAttributes) {
-        String role = (String) session.getAttribute("role");
-        if (!"TEACHER".equals(role)) {
-            redirectAttributes.addFlashAttribute("error", "Access denied. Teacher privileges required.");
-            return false;
-        }
-        return true;
-    }
-
-    private Integer getCurrentTeacherId(HttpSession session) {
-        String username = (String) session.getAttribute("username");
-        return teacherService.getTeacherByUsername(username)
+    private Integer getCurrentTeacherId(Authentication authentication) {
+        String username = authentication.getName();
+        return teacherManagementService.getTeacherByUsername(username)
                 .map(Teacher::getTeacherId)
-                .orElse(null);
+                .orElseThrow(() -> new IllegalStateException("Teacher profile not found for user: " + username));
     }
 
-    // DASHBOARD
+    private void addCurrentUserToModel(Authentication authentication, Model model) {
+        String username = authentication.getName();
+        teacherManagementService.getTeacherByUsername(username)
+                .ifPresent(teacher -> model.addAttribute("currentUser", teacher.getFullName()));
+    }
+
+    // ==================== DASHBOARD ====================
 
     @GetMapping("/dashboard")
-    public String dashboard(HttpSession session, Model model, RedirectAttributes redirectAttributes) {
-        if (!checkTeacherAccess(session, redirectAttributes)) return "redirect:/login";
+    public String dashboard(Authentication authentication, Model model) {
+        Integer teacherId = getCurrentTeacherId(authentication);
 
-        Integer teacherId = getCurrentTeacherId(session);
-        if (teacherId == null) {
-            redirectAttributes.addFlashAttribute("error", "Teacher profile not found.");
-            return "redirect:/login";
-        }
+        List<SubjectAssignment> assignments = teacherManagementService.getTeacherAssignments(teacherId);
 
-        List<SubjectAssignment> assignments = teacherService.getTeacherAssignments(teacherId);
-
-        long totalGrades = teacherService.countTeacherGrades(teacherId);
+        long totalGrades = teacherManagementService.countTeacherGrades(teacherId);
 
         int totalStudents = assignments.stream()
                 .filter(a -> a != null && a.getGroup() != null && a.getGroup().getStudents() != null)
                 .flatMap(a -> a.getGroup().getStudents().stream())
-                .collect(Collectors.toSet()) // ensure unique students
+                .collect(Collectors.toSet())
                 .size();
 
         List<Grade> teacherGrades = gradeService.getTeacherGrades(teacherId);
         double averageGrade = teacherGrades.isEmpty() ? 0.0 :
-                teacherGrades.stream().mapToDouble(g -> g.getGradeValue()).average().orElse(0.0);
+                teacherGrades.stream().mapToDouble(Grade::getGradeValue).average().orElse(0.0);
 
         TeacherStats stats = new TeacherStats(assignments.size(), totalStudents, totalGrades, averageGrade);
 
-        model.addAttribute("currentUser", session.getAttribute("displayName"));
+        addCurrentUserToModel(authentication, model);
         model.addAttribute("subjects", assignments);
         model.addAttribute("stats", stats);
 
         return "teacher/dashboard";
     }
 
-    //  GRADES PAGE
+    // ==================== GRADES PAGE ====================
 
     @GetMapping("/grades")
     public String gradesPage(@RequestParam(required = false) Integer subjectId,
                              @RequestParam(required = false) Integer assignmentId,
-                             HttpSession session,
-                             Model model,
-                             RedirectAttributes redirectAttributes) {
+                             Authentication authentication,
+                             Model model) {
 
-        if (!checkTeacherAccess(session, redirectAttributes)) return "redirect:/login";
-        Integer teacherId = getCurrentTeacherId(session);
-        if (teacherId == null) return "redirect:/login";
+        Integer teacherId = getCurrentTeacherId(authentication);
 
-        List<SubjectAssignment> allAssignments = teacherService.getTeacherAssignments(teacherId);
+        List<SubjectAssignment> allAssignments = teacherManagementService.getTeacherAssignments(teacherId);
         List<SubjectAssignment> assignments = allAssignments.stream()
                 .filter(a -> a != null && a.getSubject() != null)
                 .collect(Collectors.toList());
@@ -98,7 +96,6 @@ public class TeacherController {
         List<Grade> grades;
 
         if (assignmentId != null) {
-
             grades = gradeService.getGradesByAssignment(assignmentId);
         } else if (subjectId != null) {
             grades = gradeService.getGradesForTeacherSubject(teacherId, subjectId);
@@ -112,7 +109,15 @@ public class TeacherController {
         model.addAttribute("selectedAssignmentId", assignmentId);
 
         // Build safe JSON for UI
+        List<Map<String, Object>> safeAssignments = buildSafeAssignmentsForUI(assignments);
+        model.addAttribute("safeAssignments", safeAssignments);
 
+        addCurrentUserToModel(authentication, model);
+
+        return "teacher/grades";
+    }
+
+    private List<Map<String, Object>> buildSafeAssignmentsForUI(List<SubjectAssignment> assignments) {
         List<Map<String, Object>> safeAssignments = new ArrayList<>();
 
         for (SubjectAssignment a : assignments) {
@@ -146,76 +151,86 @@ public class TeacherController {
             safeAssignments.add(safe);
         }
 
-        model.addAttribute("safeAssignments", safeAssignments);
-
-        return "teacher/grades";
+        return safeAssignments;
     }
 
-    // CREATE GRADE
+    // ==================== CREATE GRADE ====================
 
     @PostMapping("/grades/create")
-    public String createGrade(@RequestParam Integer assignmentId,
-                              @RequestParam Integer studentId,
-                              @RequestParam Integer gradeValue,
+    public String createGrade(@RequestParam @NotNull(message = "Assignment ID is required") Integer assignmentId,
+                              @RequestParam @NotNull(message = "Student ID is required") Integer studentId,
+                              @RequestParam @NotNull(message = "Grade value is required")
+                              @Min(value = 0, message = "Grade must be at least 0")
+                              @Max(value = 10, message = "Grade must not exceed 10") Integer gradeValue,
                               @RequestParam(required = false) String comments,
-                              HttpSession session,
+                              Authentication authentication,
                               RedirectAttributes redirectAttributes) {
 
         try {
-            Integer teacherId = getCurrentTeacherId(session);
+            Integer teacherId = getCurrentTeacherId(authentication);
             gradeService.enterGrade(teacherId, studentId, assignmentId, gradeValue, comments);
-            redirectAttributes.addFlashAttribute("success", "Grade added successfully.");
-        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("success", "Grade added successfully");
+        } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", "Error: " + e.getMessage());
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Unexpected error occurred");
         }
 
         return "redirect:/teacher/grades?assignmentId=" + assignmentId;
     }
 
-    // UPDATE GRADE
+    // ==================== UPDATE GRADE ====================
 
     @PostMapping("/grades/update/{id}")
-    public String updateGrade(@PathVariable Integer id,
-                              @RequestParam Integer gradeValue,
+    public String updateGrade(@PathVariable @NotNull Integer id,
+                              @RequestParam @NotNull(message = "Grade value is required")
+                              @Min(value = 0, message = "Grade must be at least 0")
+                              @Max(value = 10, message = "Grade must not exceed 10") Integer gradeValue,
                               @RequestParam(required = false) String comments,
-                              HttpSession session,
+                              Authentication authentication,
                               RedirectAttributes redirectAttributes) {
 
-        Integer teacherId = getCurrentTeacherId(session);
+        Integer teacherId = getCurrentTeacherId(authentication);
 
         try {
             Grade g = gradeService.updateGrade(id, teacherId, gradeValue, comments);
-            redirectAttributes.addFlashAttribute("success", "Grade updated successfully.");
+            redirectAttributes.addFlashAttribute("success", "Grade updated successfully");
             return "redirect:/teacher/grades?assignmentId=" + g.getAssignment().getAssignmentId();
 
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", "Error: " + e.getMessage());
+            return "redirect:/teacher/grades";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Unexpected error occurred");
             return "redirect:/teacher/grades";
         }
     }
 
-    //  DELETE GRADE
+    // ==================== DELETE GRADE ====================
 
     @PostMapping("/grades/delete/{id}")
-    public String deleteGrade(@PathVariable Integer id,
-                              HttpSession session,
+    public String deleteGrade(@PathVariable @NotNull Integer id,
+                              Authentication authentication,
                               RedirectAttributes redirectAttributes) {
 
-        Integer teacherId = getCurrentTeacherId(session);
+        Integer teacherId = getCurrentTeacherId(authentication);
 
         try {
             Grade deleted = gradeService.deleteGrade(id, teacherId);
-            redirectAttributes.addFlashAttribute("success", "Grade deleted successfully.");
+            redirectAttributes.addFlashAttribute("success", "Grade deleted successfully");
             return "redirect:/teacher/grades?assignmentId=" +
                     deleted.getAssignment().getAssignmentId();
 
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", "Error: " + e.getMessage());
+            return "redirect:/teacher/grades";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "Unexpected error occurred");
             return "redirect:/teacher/grades";
         }
     }
 
-    //  STATS CLASS
+    // ==================== STATS CLASS ====================
 
     public static class TeacherStats {
         private final int totalSubjects;
